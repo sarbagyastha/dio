@@ -347,6 +347,7 @@ class Dio {
               response = _assureResponse(data);
             }
             return response;
+            
           });
         }
         return future.catchError((err) => throw _assureDioError(err));
