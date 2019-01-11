@@ -15,6 +15,8 @@ enum ResponseType {
 }
 
 typedef bool ValidateStatus(int status);
+typedef void OnUploadProgress(int send, int total);
+
 
 /**
  * The Options class describes the http request information and configuration.
@@ -32,6 +34,7 @@ class Options {
     this.responseType,
     this.contentType,
     this.validateStatus,
+    this.onUploadProgress,
     this.followRedirects:true
   }) {
     // set the default user-agent with Dio version
@@ -53,21 +56,23 @@ class Options {
     ResponseType responseType,
     ContentType contentType,
     ValidateStatus validateStatus,
+    OnUploadProgress onUploadProgress,
     bool followRedirects
   }) {
     return new Options(
-      method: method??this.method,
-      baseUrl: baseUrl??this.baseUrl,
-      path: path??this.path,
-      connectTimeout: connectTimeout??this.connectTimeout,
-      receiveTimeout: receiveTimeout??this.receiveTimeout,
-      data: data??this.data,
-      extra: extra??new Map.from(this.extra??{}),
-      headers: headers??new Map.from(this.headers??{}),
-      responseType: responseType??this.responseType,
-      contentType: contentType??this.contentType,
-      validateStatus: validateStatus??this.validateStatus,
-      followRedirects: followRedirects??this.followRedirects
+        method: method??this.method,
+        baseUrl: baseUrl??this.baseUrl,
+        path: path??this.path,
+        connectTimeout: connectTimeout??this.connectTimeout,
+        receiveTimeout: receiveTimeout??this.receiveTimeout,
+        data: data??this.data,
+        extra: extra??new Map.from(this.extra??{}),
+        headers: headers??new Map.from(this.headers??{}),
+        responseType: responseType??this.responseType,
+        contentType: contentType??this.contentType,
+        validateStatus: validateStatus??this.validateStatus,
+        onUploadProgress: onUploadProgress??this.onUploadProgress,
+        followRedirects: followRedirects??this.followRedirects
     );
   }
 
@@ -118,6 +123,9 @@ class Options {
   /// HTTP response status code. If `validateStatus` returns `true` ,
   /// the request will be perceived as successful; otherwise, considered as failed.
   ValidateStatus validateStatus;
+
+  /// `onProgress` defines upload progress callback
+  OnUploadProgress onUploadProgress;
 
   /// Custom field that you can retrieve it later in [Interceptor]、[Transformer] and the [Response] object.
   Map<String, dynamic> extra;

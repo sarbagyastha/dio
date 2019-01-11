@@ -37,6 +37,9 @@ class Dio {
   /// The Dio version.
   static const version = "0.0.4";
 
+  /// upload progress buffer
+  static const BUFFER_SIZE = 10 * 1024;
+
   /// Default Request config. More see [Options] .
   Options options;
 
@@ -183,13 +186,13 @@ class Dio {
    *
    */
   Future<Response> download(
-    String urlPath,
-    savePath, {
-    OnDownloadProgress onProgress,
-    CancelToken cancelToken,
-    data,
-    Options options,
-  }) async {
+      String urlPath,
+      savePath, {
+        OnDownloadProgress onProgress,
+        CancelToken cancelToken,
+        data,
+        Options options,
+      }) async {
     // We set the `responseType` to [ResponseType.STREAM] to retrieve the
     // response stream.
     if (options != null) {
@@ -238,7 +241,7 @@ class Dio {
     }
 
     stream.listen(
-      (data) {
+          (data) {
         // Check if cancelled.
         if (cancelToken != null && cancelToken.cancelError != null) {
           httpClient.close(force: true);
@@ -275,11 +278,11 @@ class Dio {
    * [options] The request options.
    */
   Future<Response<T>> request<T>(
-    String path, {
-    data,
-    CancelToken cancelToken,
-    Options options,
-  }) async {
+      String path, {
+        data,
+        CancelToken cancelToken,
+        Options options,
+      }) async {
     var httpClient = _httpClient;
     if (cancelToken != null) {
       httpClient = _configHttpClient(new HttpClient());
@@ -306,11 +309,11 @@ class Dio {
 
   Future<Response<T>> _request<T>(String path,
       {data,
-      CancelToken cancelToken,
-      Options options,
-      HttpClient httpClient}) async {
+        CancelToken cancelToken,
+        Options options,
+        HttpClient httpClient}) async {
     Future<Response<T>> future =
-        _checkIfNeedEnqueue<T>(interceptor.request, () {
+    _checkIfNeedEnqueue<T>(interceptor.request, () {
       _mergeOptions(options);
       options.data = data ?? options.data;
       options.path = path;
@@ -417,6 +420,10 @@ class Dio {
       response = await _listenCancelForAsyncTask(cancelToken, request.close());
       cookieJar.saveFromResponse(uri, response.cookies);
 
+      if(options.onUploadProgress != null){
+        options.onUploadProgress(request.contentLength, request.contentLength);
+      }
+
       var retData = await _listenCancelForAsyncTask(
           cancelToken, transformer.transformResponse(options, response));
 
@@ -427,7 +434,7 @@ class Dio {
           statusCode: response.statusCode);
 
       Future<Response<T>> future =
-          _checkIfNeedEnqueue<T>(interceptor.response, () {
+      _checkIfNeedEnqueue<T>(interceptor.response, () {
         _checkCancelled(cancelToken);
         if (options.validateStatus(response.statusCode)) {
           return _listenCancelForAsyncTask<Response<T>>(
@@ -451,7 +458,7 @@ class Dio {
       } else {
         // Response onError
         Future<Response<T>> future =
-            _checkIfNeedEnqueue<T>(interceptor.response, () {
+        _checkIfNeedEnqueue<T>(interceptor.response, () {
           _checkCancelled(cancelToken);
           // Listen in error interceptor.
           return _listenCancelForAsyncTask<Response<T>>(
@@ -500,7 +507,45 @@ class Dio {
           //Must set the content-length
           request.contentLength = bytes.length;
           _setHeaders(options, request);
-          request.add(bytes);
+
+          if (bytes.length > BUFFER_SIZE) {
+            var controller = new StreamController<List<int>>(sync: true);
+
+            for (int i = 0, len = bytes.length; i < len; i += BUFFER_SIZE) {
+              int end = i + BUFFER_SIZE;
+              if (!(i + BUFFER_SIZE < len)) {
+                end = len;
+              }
+              controller.add(bytes.sublist(i, end));
+            }
+
+            controller.close();
+
+
+            int byteCount = 0;
+            Stream<List<int>> stream = controller.stream.transform(
+                new StreamTransformer.fromHandlers(
+                    handleData: (data, sink) {
+                      byteCount += data.length;
+                      sink.add(data);
+                      if (options.onUploadProgress != null) {
+                        options.onUploadProgress(byteCount, bytes.length);
+                      }
+                    },
+                    handleError: (error, stack, sink) {
+                      print('handleError: $error');
+                      sink.close();
+                    },
+                    handleDone: (sink) {
+                      sink.close();
+                    }
+                )
+            );
+
+            await request.addStream(stream);
+          } else {
+            request.add(bytes);
+          }
           return;
         }
       }
@@ -580,7 +625,8 @@ class Dio {
     opt.extra = (new Map.from(options.extra))..addAll(opt.extra);
     opt.contentType ??= options.contentType ?? ContentType.json;
     opt.validateStatus ??= options.validateStatus ??
-        (int status) => status >= 200 && status < 300 || status == 304;
+            (int status) => status >= 200 && status < 300 || status == 304;
+    opt.onUploadProgress ??= options.onUploadProgress;
     opt.followRedirects ??= options.followRedirects ?? true;
   }
 
