@@ -7,13 +7,16 @@ Language: [English](https://github.com/flutterchina/dio) | [中文简体](https:
 [![coverage](https://img.shields.io/codecov/c/github/flutterchina/dio/vm.svg?style=flat-square)](https://codecov.io/github/flutterchina/dio?branch=vm)
 [![support](https://img.shields.io/badge/platform-flutter%7Cdart%20vm-ff69b4.svg?style=flat-square)](https://github.com/flutterchina/dio)
 
+Forked Dio containing OnUploadProgress Support.
 A powerful Http client for Dart, which supports Interceptors, Global configuration, FormData, Request Cancellation, File downloading, Timeout etc. 
 
 ### Add dependency
 
 ```yaml
 dependencies:
-  dio: x.x.x  #latest version
+  dio: 
+    git:
+      url: git://github.com/sarbagyastha/dio.git
 ```
 
 ## Super simple to use
